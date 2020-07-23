@@ -13,7 +13,8 @@ ABKCharacter::ABKCharacter()
 
 	HeadSocketName = TEXT("headSocket");
 	CameraComponent = CreateDefaultSubobject<UCameraComponent>("CameraComponent");
-	CameraComponent->AttachToComponent(GetMesh(), FAttachmentTransformRules(EAttachmentRule::SnapToTarget, true), HeadSocketName);
+	//CameraComponent->AttachToComponent(GetMesh(), FAttachmentTransformRules(EAttachmentRule::SnapToTarget, true), HeadSocketName);
+	CameraComponent->SetupAttachment(GetMesh(), HeadSocketName);
 	CameraComponent->bUsePawnControlRotation = true;
 
 	ObjectCarryPoint = CreateDefaultSubobject<USceneComponent>(TEXT("ObjectCarryPoint"));
