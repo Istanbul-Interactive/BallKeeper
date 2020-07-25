@@ -3,7 +3,10 @@
 #include "BKCharacter.h"
 
 #include "DrawDebugHelpers.h"
+#include "BallKeeper/Framework/BKGameModeBase.h"
 #include "Camera/CameraComponent.h"
+#include "Kismet/GameplayStatics.h"
+#include "Net/UnrealNetwork.h"
 
 // Sets default values
 ABKCharacter::ABKCharacter()
@@ -11,9 +14,11 @@ ABKCharacter::ABKCharacter()
 	// Set this character to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
 	PrimaryActorTick.bCanEverTick = true;
 
+	bReplicates = true;
+	SetReplicates(true);
+
 	HeadSocketName = TEXT("headSocket");
 	CameraComponent = CreateDefaultSubobject<UCameraComponent>("CameraComponent");
-	//CameraComponent->AttachToComponent(GetMesh(), FAttachmentTransformRules(EAttachmentRule::SnapToTarget, true), HeadSocketName);
 	CameraComponent->SetupAttachment(GetMesh(), HeadSocketName);
 	CameraComponent->bUsePawnControlRotation = true;
 
@@ -43,6 +48,26 @@ void ABKCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCompone
 	PlayerInputComponent->BindAxis("MoveRight", this, &ABKCharacter::MoveRight);
 	PlayerInputComponent->BindAxis("LookUp", this, &ABKCharacter::LookUp);
 	PlayerInputComponent->BindAxis("Turn", this, &ABKCharacter::Turn);
+}
+
+void ABKCharacter::SpawnPlayer_Implementation()
+{
+	UE_LOG(LogTemp, Warning, TEXT("Spawning player..."));
+	
+	ABKGameModeBase* GM = Cast<ABKGameModeBase>(UGameplayStatics::GetGameMode(GetWorld()));
+	
+	if (TeamId == 1)
+		SetActorLocation(GM->TeamOneSpawnPoint);
+	else if (TeamId == 2)
+		SetActorLocation(GM->TeamTwoSpawnPoint);
+}
+
+void ABKCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
+{
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+
+	//Replicates to everyone
+	DOREPLIFETIME(ABKCharacter, TeamId);
 }
 
 // Called when the game starts or when spawned
@@ -107,16 +132,20 @@ void ABKCharacter::ServerGrabObject_Implementation()
 		return;
 
 	UPrimitiveComponent* PrimComp = Hit.GetComponent();
+	GrabbedObject = Hit.GetActor();
 
-	if (PrimComp && PrimComp->IsSimulatingPhysics())
+	if (GrabbedObject->IsA<ABKBall>())
 	{
-		GrabbedObject = Hit.GetActor();
-		if (!GrabbedObject)
-			return;
-
+		//if (!GrabbedObject)
+		//	return;
+		//	
+		
 		ABKBall* ball = Cast<ABKBall>(GrabbedObject);
 		if (ball != nullptr)
+		{
 			ball->IsGrabbed = true;
+			ball->LastTeamId = TeamId;
+		}
 
 		UStaticMeshComponent* ObjectMesh = Cast<UStaticMeshComponent>(GrabbedObject->GetRootComponent());
 		if (ObjectMesh != nullptr)

@@ -29,12 +29,18 @@ public:
 	UPROPERTY(EditDefaultsOnly, Category = "Gravity Gun")
 		float ReachDistance;
 
+	UPROPERTY(Replicated, VisibleAnywhere, BlueprintReadOnly, Category = "Team")
+		int TeamId;
+
 public:
 	// Called every frame
 	virtual void Tick(float DeltaTime) override;
 
 	// Called to bind functionality to input
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
+
+	UFUNCTION(Server, Reliable ,BlueprintCallable, Category = "BallKeeper|Player")
+		void SpawnPlayer();
 
 protected:
 	UPROPERTY()

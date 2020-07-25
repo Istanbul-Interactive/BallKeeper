@@ -3,6 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "Components/SphereComponent.h"
 #include "GameFramework/Actor.h"
 #include "BKBall.generated.h"
 
@@ -18,8 +19,16 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Ball")
 		UStaticMeshComponent* BallMesh;
 
+	//For physics collision detection
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	USphereComponent* SphereTrigger;
+
 	UPROPERTY(BlueprintReadWrite, VisibleAnywhere)
 		bool IsGrabbed;
+
+	//The last team to carry the ball
+	UPROPERTY()
+		int LastTeamId;
 
 public:
 	// Called every frame
@@ -28,12 +37,15 @@ public:
 	UFUNCTION(Server, Reliable, BlueprintCallable, Category = "BallKeeper|Ball")
 		void ResetBallLocation();
 
+	UFUNCTION(BlueprintCallable, Category="BallKeeper|Ball")
+	void OnCollisionHit(AActor* OtherActor);
 protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
 
 	UFUNCTION(Server, Reliable)
 		void DropBall();
+	
 
 protected:
 	FVector BallResetLocation;

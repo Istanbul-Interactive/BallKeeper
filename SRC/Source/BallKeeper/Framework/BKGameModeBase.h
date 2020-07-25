@@ -18,9 +18,15 @@ class BALLKEEPER_API ABKGameModeBase : public AGameModeBase
 public:
 	TArray<APlayerController*> ConnectedPlayers;
 
-	UPROPERTY(EditAnywhere, Category = "Spawning")
+	UPROPERTY(EditAnywhere, Category = "Spawn")
 		TSubclassOf<ABKBall> BallToSpawn;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spawn")
+		FVector TeamOneSpawnPoint;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spawn")
+		FVector TeamTwoSpawnPoint;
+	
 public:
 	ABKGameModeBase();
 

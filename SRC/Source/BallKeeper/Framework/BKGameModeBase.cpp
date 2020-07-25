@@ -1,6 +1,8 @@
 // Copyright Emre Bugday (emreb25@outlook.com). All Rights Reserved.
 
 #include "BKGameModeBase.h"
+
+#include "BallKeeper/Gameplay/Player/BKCharacter.h"
 #include "Kismet/GameplayStatics.h"
 
 ABKGameModeBase::ABKGameModeBase()
@@ -37,7 +39,7 @@ void ABKGameModeBase::PreLogin(const FString& Options, const FString& Address, c
 
 	UE_LOG(LogTemp, Warning, TEXT("Player joining..."));
 
-	if (GetNumPlayers() >= 2)
+	if (GetNumPlayers() >= 15)
 	{
 		UE_LOG(LogTemp, Error, TEXT("Max player count reached. Refusing connection..."));
 		ErrorMessage = TEXT("Server is full!");
@@ -50,6 +52,37 @@ void ABKGameModeBase::PostLogin(APlayerController* NewPlayer)
 
 	UE_LOG(LogTemp, Warning, TEXT("Player joined!"));
 	ConnectedPlayers.Add(NewPlayer);
+
+	
+	ABKCharacter* NewCharacter = Cast<ABKCharacter>(NewPlayer->GetPawn());
+
+	if(NewCharacter)
+	{
+		int TeamOne = 0;
+		int TeamTwo = 0;
+		
+		for(int i = 0; i < ConnectedPlayers.Num(); i++)
+		{
+			ABKCharacter* player = Cast<ABKCharacter>(ConnectedPlayers[i]->GetPawn());
+			if (player->TeamId == 1)
+				TeamOne++;
+			else
+				TeamTwo++;
+		}
+
+		if (TeamOne < TeamTwo)
+			NewCharacter->TeamId = 1;
+		else if (TeamTwo < TeamOne)
+			NewCharacter->TeamId = 2;
+		else
+		{
+			NewCharacter->TeamId = FMath::RandRange(1, 2);
+		}
+
+		UE_LOG(LogTemp, Warning, TEXT("Player initialization completed!"));
+
+		NewCharacter->SpawnPlayer();
+	}
 }
 
 void ABKGameModeBase::Logout(AController* Exiting)

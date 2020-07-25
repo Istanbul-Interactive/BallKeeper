@@ -2,6 +2,8 @@
 
 #include "BKBall.h"
 
+#include "BallKeeper/Gameplay/Player/BKCharacter.h"
+
 // Sets default values
 ABKBall::ABKBall()
 {
@@ -9,8 +11,9 @@ ABKBall::ABKBall()
 	PrimaryActorTick.bCanEverTick = true;
 
 	BallMesh = CreateDefaultSubobject<UStaticMeshComponent>("Static Mesh Component");
-
 	SetRootComponent(BallMesh);
+	SphereTrigger = CreateDefaultSubobject<USphereComponent>("Sphere Trigger");
+	SphereTrigger->SetupAttachment(BallMesh);
 }
 
 // Called every frame
@@ -27,6 +30,17 @@ void ABKBall::ResetBallLocation_Implementation()
 {
 	BallMesh->SetAllPhysicsLinearVelocity(FVector(0.0f, 0.0f, 0.0f), false);
 	SetActorLocation(BallResetLocation);
+}
+
+void ABKBall::OnCollisionHit(AActor* OtherActor)
+{
+	ABKCharacter* Character = Cast<ABKCharacter>(OtherActor);
+	UE_LOG(LogTemp, Warning, TEXT("Hit "));
+
+	if(Character && LastTeamId != Character->TeamId)
+	{
+		Character->Destroy();
+	}
 }
 
 // Called when the game starts or when spawned
