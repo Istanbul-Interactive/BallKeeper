@@ -4,6 +4,8 @@
 
 #include "CoreMinimal.h"
 #include "BallKeeper/Gameplay/Ball/BKBall.h"
+#include "BallKeeper/Gameplay/Player/BKCharacter.h"
+#include "BallKeeper/Gameplay/Player/BKSpectatorPawn.h"
 #include "GameFramework/GameModeBase.h"
 #include "GameFramework/PlayerController.h"
 #include "Engine/World.h"
@@ -21,17 +23,20 @@ public:
 	UPROPERTY(EditAnywhere, Category = "Spawn")
 		TSubclassOf<ABKBall> BallToSpawn;
 
+	UPROPERTY(EditAnywhere, Category = "Spawn")
+		TSubclassOf<ABKSpectatorPawn> PlayerSpectator;
+
+	UPROPERTY(EditAnywhere, Category = "Spawn")
+		TSubclassOf<ABKCharacter> PlayerToSpawn;
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spawn")
 		FVector TeamOneSpawnPoint;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spawn")
 		FVector TeamTwoSpawnPoint;
-	
+
 public:
 	ABKGameModeBase();
-
-	UFUNCTION(BlueprintCallable, Category = "BallKeeper|Ball")
-		void SpawnBall(FVector Location, FRotator Rotation) const;
 
 protected:
 	virtual void BeginPlay() override;
@@ -43,4 +48,26 @@ protected:
 	virtual void PostLogin(APlayerController* NewPlayer) override;
 
 	virtual void Logout(AController* Exiting) override;
+
+public:
+	UFUNCTION(BlueprintCallable, Category = "BallKeeper|Ball")
+		void SpawnBall(FVector Location, FRotator Rotation) const;
+
+	UFUNCTION(Server, Reliable, Category = "BallKeeper|Player")
+		void PlayerDeath(ABKCharacter* Character);
+
+	UFUNCTION(Server, Reliable, Category = "BallKeeper|Player")
+		void AssignPlayerTeam(APlayerController* NewPlayer);
+
+	UFUNCTION(Server, Reliable, Category = "BallKeeper|Teams")
+		void RestartGame();
+
+	UFUNCTION(Server, Reliable, Category = "BallKeeper|Player")
+		void OnPlayerDeath();
+
+	UFUNCTION(Category = "BallKeeper|Teams")
+		int GetTeamOnePlayerCount();
+
+	UFUNCTION(Category = "BallKeeper|Teams")
+		int GetTeamTwoPlayerCount();
 };

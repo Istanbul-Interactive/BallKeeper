@@ -40,7 +40,7 @@ public:
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
 
 	UFUNCTION(Server, Reliable ,BlueprintCallable, Category = "BallKeeper|Player")
-		void SpawnPlayer();
+		void ResetPlayerPosition();
 
 protected:
 	UPROPERTY()
@@ -62,5 +62,5 @@ protected:
 	UFUNCTION(Server, Reliable)
 		void ServerGrabObject();
 	UFUNCTION(Server, Reliable)
-		void ServerThrowObject(FVector ClientForwardVector);
+		void ServerThrowObject(const FVector ClientForwardVector);
 };

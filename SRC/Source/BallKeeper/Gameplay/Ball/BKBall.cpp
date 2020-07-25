@@ -2,6 +2,8 @@
 
 #include "BKBall.h"
 
+
+#include "BallKeeper/Framework/BKGameModeBase.h"
 #include "BallKeeper/Gameplay/Player/BKCharacter.h"
 
 // Sets default values
@@ -21,25 +23,34 @@ void ABKBall::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
-	FVector pos = GetActorLocation();
-	if (pos.Z <= -1000.0f && HasAuthority())
+	if (HasAuthority() && GetActorLocation().Z <= -1000.0f)
 		ResetBallLocation();
 }
 
 void ABKBall::ResetBallLocation_Implementation()
 {
 	BallMesh->SetAllPhysicsLinearVelocity(FVector(0.0f, 0.0f, 0.0f), false);
+	LastTeamId = 0;
 	SetActorLocation(BallResetLocation);
 }
 
 void ABKBall::OnCollisionHit(AActor* OtherActor)
 {
-	ABKCharacter* Character = Cast<ABKCharacter>(OtherActor);
-	UE_LOG(LogTemp, Warning, TEXT("Hit "));
-
-	if(Character && LastTeamId != Character->TeamId)
+	//Making sure that the code only runs on server.
+	if(GetNetMode() == ENetMode::NM_ListenServer)
 	{
-		Character->Destroy();
+		//Team ID 0 = no team ever claimed the ball. It's neutral.
+		if (LastTeamId == 0)
+			return;
+		
+		ABKCharacter* Character = Cast<ABKCharacter>(OtherActor);
+
+		//Checking if the last team to control the ball is same as the hit character's team.
+		if (Character && LastTeamId != Character->TeamId)
+		{
+			ABKGameModeBase* GM = Cast<ABKGameModeBase>(GetWorld()->GetAuthGameMode());
+			GM->PlayerDeath(Character);
+		}
 	}
 }
 

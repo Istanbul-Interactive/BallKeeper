@@ -8,6 +8,8 @@
 #include "Kismet/GameplayStatics.h"
 #include "Net/UnrealNetwork.h"
 
+#define OUT
+
 // Sets default values
 ABKCharacter::ABKCharacter()
 {
@@ -50,12 +52,12 @@ void ABKCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCompone
 	PlayerInputComponent->BindAxis("Turn", this, &ABKCharacter::Turn);
 }
 
-void ABKCharacter::SpawnPlayer_Implementation()
+//Called from BKGameModeBase
+void ABKCharacter::ResetPlayerPosition_Implementation()
 {
-	UE_LOG(LogTemp, Warning, TEXT("Spawning player..."));
-	
 	ABKGameModeBase* GM = Cast<ABKGameModeBase>(UGameplayStatics::GetGameMode(GetWorld()));
-	
+
+	//Spawning player according to their team spawn point.
 	if (TeamId == 1)
 		SetActorLocation(GM->TeamOneSpawnPoint);
 	else if (TeamId == 2)
@@ -117,11 +119,12 @@ void ABKCharacter::ServerGrabObject_Implementation()
 {
 	const FCollisionQueryParams QueryParams("ObjectCarryTrace", false, this);
 
+	//Casting the controller to APlayerController class.
 	APlayerController* PC = Cast<APlayerController>(this->GetController());
 
 	FVector CameraLocation;
 	FRotator CameraRotation;
-	PC->GetPlayerViewPoint(CameraLocation, CameraRotation);
+	PC->GetPlayerViewPoint(OUT CameraLocation, OUT CameraRotation);
 
 	const FVector Start = CameraLocation;
 	const FVector ForwardVector = CameraLocation.ForwardVector;
@@ -132,56 +135,61 @@ void ABKCharacter::ServerGrabObject_Implementation()
 		return;
 
 	UPrimitiveComponent* PrimComp = Hit.GetComponent();
-	GrabbedObject = Hit.GetActor();
 
-	if (GrabbedObject->IsA<ABKBall>())
+	//To prevent trying to pick up any random object.
+	if (Hit.GetActor()->IsA<ABKBall>())
 	{
-		//if (!GrabbedObject)
-		//	return;
-		//	
-		
+		//GrabbedObject is ABKBall
+		GrabbedObject = Hit.GetActor();
+
 		ABKBall* ball = Cast<ABKBall>(GrabbedObject);
+		//If ball is casted successfully than we grabbed a ball.
 		if (ball != nullptr)
 		{
 			ball->IsGrabbed = true;
 			ball->LastTeamId = TeamId;
 		}
 
+		//RootComponent of the ABKBall class is it's static mesh.
 		UStaticMeshComponent* ObjectMesh = Cast<UStaticMeshComponent>(GrabbedObject->GetRootComponent());
 		if (ObjectMesh != nullptr)
 			ObjectMesh->SetSimulatePhysics(false);
 
+		//Attaching ABKBall to ABKCharacter's ObjectCarryPoint.
 		GrabbedObject->AttachToComponent(this->ObjectCarryPoint, FAttachmentTransformRules::SnapToTargetNotIncludingScale);
 	}
 }
 
 void ABKCharacter::StopFire()
 {
+	//Feeding the ServerThrowObject with Camera's forward vector.
 	ServerThrowObject(CameraComponent->GetForwardVector());
 }
 
-void ABKCharacter::ServerThrowObject_Implementation(FVector ClientForwardVector)
+void ABKCharacter::ServerThrowObject_Implementation(const FVector ClientForwardVector)
 {
-	if (GrabbedObject)
+	if (GrabbedObject != nullptr && GrabbedObject->IsA<ABKBall>())
 	{
 		const FVector ShootVelocity = ClientForwardVector * ShootStrength;
 
+		//RootComponent of the ABKBall class is it's static mesh.
 		UStaticMeshComponent* ObjectMesh = Cast<UStaticMeshComponent>(GrabbedObject->GetRootComponent());
 		if (ObjectMesh != nullptr)
 		{
-			ObjectMesh->SetSimulatePhysics(false);
+			//ObjectMesh->SetSimulatePhysics(false);
 			ObjectMesh->DetachFromComponent(FDetachmentTransformRules::KeepWorldTransform);
 			ObjectMesh->SetSimulatePhysics(true);
 			ObjectMesh->AddImpulse(ShootVelocity, NAME_None, true);
 		}
 
-		//Up-casting from AActor to ABKBall
+		//Up-casting from AActor to ABKBall.
 		ABKBall* ball = Cast<ABKBall>(GrabbedObject);
-		if (ball != nullptr)
-		{
-			ball->IsGrabbed = false;
-		}
 
+		//Setting IsGrabbed false since the player throw the ball.
+		if (ball != nullptr)
+			ball->IsGrabbed = false;
+
+		//Setting GrabbedObject to nullptr as we are no longer carrying it.
 		GrabbedObject = nullptr;
 	}
 }
