@@ -4,7 +4,6 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Character.h"
-#include "BallKeeper/Gameplay/Ball/BKBall.h"
 #include "BKCharacter.generated.h"
 
 UCLASS()
@@ -24,6 +23,7 @@ public:
 	//This is where the grabbed object is going to stick at.
 	UPROPERTY(EditDefaultsOnly, Category = "Gravity Gun")
 		class USceneComponent* ObjectCarryPoint;
+
 	UPROPERTY(EditDefaultsOnly, Category = "Gravity Gun")
 		float ShootStrength;
 	UPROPERTY(EditDefaultsOnly, Category = "Gravity Gun")
@@ -32,6 +32,9 @@ public:
 	UPROPERTY(Replicated, VisibleAnywhere, BlueprintReadOnly, Category = "Team")
 		int TeamId;
 
+	UPROPERTY(Replicated, VisibleAnywhere, BlueprintReadOnly, Category = "Character")
+		bool IsCarryingBall;
+
 public:
 	// Called every frame
 	virtual void Tick(float DeltaTime) override;
@@ -39,8 +42,14 @@ public:
 	// Called to bind functionality to input
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
 
-	UFUNCTION(Server, Reliable ,BlueprintCallable, Category = "BallKeeper|Player")
+	UFUNCTION(Server, Reliable, BlueprintCallable, Category = "BallKeeper|Player")
 		void ResetPlayerPosition();
+
+	UFUNCTION(BlueprintImplementableEvent, Category = "BallKeeper|Ball")
+		void OnBallCarry();
+
+	UFUNCTION(BlueprintImplementableEvent, Category = "BallKeeper|Ball")
+		void OnBallDrop();
 
 protected:
 	UPROPERTY()

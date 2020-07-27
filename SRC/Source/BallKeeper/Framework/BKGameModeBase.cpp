@@ -57,6 +57,7 @@ void ABKGameModeBase::SpawnBall(FVector Location, FRotator Rotation) const
 	{
 		FActorSpawnParameters SpawnParams;
 		ABKBall* spawnedBall = GetWorld()->SpawnActor<ABKBall>(BallToSpawn, Location, Rotation, SpawnParams);
+		spawnedBall->ResetBallLocation();
 	}
 }
 
@@ -108,7 +109,7 @@ void ABKGameModeBase::RestartGame_Implementation()
 			Character->Destroy();
 		}
 
-		ABKCharacter* NewCharacter = GetWorld()->SpawnActor<ABKCharacter>(PlayerToSpawn, TeamOneSpawnPoint, FRotator(0.0f, 0.0f, 0.0f));
+		ABKCharacter* NewCharacter = GetWorld()->SpawnActor<ABKCharacter>(PlayerToSpawn, FVector(0.0f, 0.0f, 0.0f), FRotator(0.0f, 0.0f, 0.0));
 		ConnectedPlayers[i]->Possess(NewCharacter);
 		AssignPlayerTeam(ConnectedPlayers[i]);
 

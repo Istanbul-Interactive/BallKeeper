@@ -30,10 +30,16 @@ public:
 		TSubclassOf<ABKCharacter> PlayerToSpawn;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spawn")
-		FVector TeamOneSpawnPoint;
+		FVector TeamOneSpawnPointLocation;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spawn")
-		FVector TeamTwoSpawnPoint;
+		FRotator TeamOneSpawnPointRotation;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spawn")
+		FVector TeamTwoSpawnPointLocation;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spawn")
+		FRotator TeamTwoSpawnPointRotation;
 
 public:
 	ABKGameModeBase();

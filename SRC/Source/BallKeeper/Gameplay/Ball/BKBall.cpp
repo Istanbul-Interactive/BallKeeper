@@ -30,6 +30,7 @@ void ABKBall::Tick(float DeltaTime)
 void ABKBall::ResetBallLocation_Implementation()
 {
 	BallMesh->SetAllPhysicsLinearVelocity(FVector(0.0f, 0.0f, 0.0f), false);
+	BallMesh->SetSimulatePhysics(false);
 	LastTeamId = 0;
 	SetActorLocation(BallResetLocation);
 }

@@ -52,6 +52,8 @@ void ABKCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCompone
 	PlayerInputComponent->BindAxis("Turn", this, &ABKCharacter::Turn);
 }
 
+
+
 //Called from BKGameModeBase
 void ABKCharacter::ResetPlayerPosition_Implementation()
 {
@@ -59,9 +61,15 @@ void ABKCharacter::ResetPlayerPosition_Implementation()
 
 	//Spawning player according to their team spawn point.
 	if (TeamId == 1)
-		SetActorLocation(GM->TeamOneSpawnPoint);
+	{
+		SetActorLocation(GM->TeamOneSpawnPointLocation);
+		SetActorRotation(GM->TeamOneSpawnPointRotation);
+	}
 	else if (TeamId == 2)
-		SetActorLocation(GM->TeamTwoSpawnPoint);
+	{
+		SetActorLocation(GM->TeamTwoSpawnPointLocation);
+		SetActorRotation(GM->TeamTwoSpawnPointRotation);
+	}
 }
 
 void ABKCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
@@ -70,6 +78,7 @@ void ABKCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLife
 
 	//Replicates to everyone
 	DOREPLIFETIME(ABKCharacter, TeamId);
+	DOREPLIFETIME(ABKCharacter, IsCarryingBall);
 }
 
 // Called when the game starts or when spawned
@@ -90,7 +99,7 @@ void ABKCharacter::MoveRight(float value)
 {
 	if (value != 0.0f)
 	{
-		AddMovementInput(GetActorRightVector(), value);
+		AddMovementInput(GetActorRightVector(), value / 1.2f);
 	}
 }
 
@@ -148,22 +157,27 @@ void ABKCharacter::ServerGrabObject_Implementation()
 		{
 			ball->IsGrabbed = true;
 			ball->LastTeamId = TeamId;
+			ball->SetActorEnableCollision(false);
 		}
 
 		//RootComponent of the ABKBall class is it's static mesh.
 		UStaticMeshComponent* ObjectMesh = Cast<UStaticMeshComponent>(GrabbedObject->GetRootComponent());
 		if (ObjectMesh != nullptr)
+		{
 			ObjectMesh->SetSimulatePhysics(false);
+		}
 
 		//Attaching ABKBall to ABKCharacter's ObjectCarryPoint.
-		GrabbedObject->AttachToComponent(this->ObjectCarryPoint, FAttachmentTransformRules::SnapToTargetNotIncludingScale);
+		GrabbedObject->AttachToComponent(this->ObjectCarryPoint, FAttachmentTransformRules::SnapToTargetNotIncludingScale, HeadSocketName);
+		OnBallCarry();
+		IsCarryingBall = true;
 	}
 }
 
 void ABKCharacter::StopFire()
 {
 	//Feeding the ServerThrowObject with Camera's forward vector.
-	ServerThrowObject(CameraComponent->GetForwardVector());
+	ServerThrowObject(ObjectCarryPoint->GetForwardVector());
 }
 
 void ABKCharacter::ServerThrowObject_Implementation(const FVector ClientForwardVector)
@@ -177,6 +191,7 @@ void ABKCharacter::ServerThrowObject_Implementation(const FVector ClientForwardV
 		if (ObjectMesh != nullptr)
 		{
 			//ObjectMesh->SetSimulatePhysics(false);
+			GrabbedObject->SetActorEnableCollision(true);
 			ObjectMesh->DetachFromComponent(FDetachmentTransformRules::KeepWorldTransform);
 			ObjectMesh->SetSimulatePhysics(true);
 			ObjectMesh->AddImpulse(ShootVelocity, NAME_None, true);
@@ -191,5 +206,7 @@ void ABKCharacter::ServerThrowObject_Implementation(const FVector ClientForwardV
 
 		//Setting GrabbedObject to nullptr as we are no longer carrying it.
 		GrabbedObject = nullptr;
+		OnBallDrop();
+		IsCarryingBall = false;
 	}
 }
