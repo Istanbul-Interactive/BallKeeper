@@ -2,6 +2,7 @@
 
 #include "BKCharacter.h"
 
+#include "BKPlayerControllerBase.h"
 #include "DrawDebugHelpers.h"
 #include "BallKeeper/Framework/BKGameModeBase.h"
 #include "Camera/CameraComponent.h"
@@ -24,10 +25,14 @@ ABKCharacter::ABKCharacter()
 	CameraComponent->SetupAttachment(GetMesh(), HeadSocketName);
 	CameraComponent->bUsePawnControlRotation = true;
 
+	SpotLight = CreateDefaultSubobject<USpotLightComponent>("SpotLightComponent");
+	SpotLight->SetupAttachment(CameraComponent, HeadSocketName);
+
 	ObjectCarryPoint = CreateDefaultSubobject<USceneComponent>(TEXT("ObjectCarryPoint"));
 	ObjectCarryPoint->SetupAttachment(CameraComponent);
 
 	ReachDistance = 1000.0f;
+	DashPower = 3000.0f;
 }
 
 // Called every frame
@@ -45,6 +50,10 @@ void ABKCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCompone
 	PlayerInputComponent->BindAction("Jump", IE_Released, this, &ACharacter::StopJumping);
 	PlayerInputComponent->BindAction("Fire", IE_Pressed, this, &ABKCharacter::StartFire);
 	PlayerInputComponent->BindAction("Fire", IE_Released, this, &ABKCharacter::StopFire);
+	PlayerInputComponent->BindAction("DashRight", IE_Pressed, this, &ABKCharacter::ClientDashRight);
+	PlayerInputComponent->BindAction("DashLeft", IE_Pressed, this, &ABKCharacter::ClientDashLeft);
+	PlayerInputComponent->BindAction("DashForward", IE_Pressed, this, &ABKCharacter::ClientDashForward);
+	PlayerInputComponent->BindAction("DashBackward", IE_Pressed, this, &ABKCharacter::ClientDashBackward);
 
 	PlayerInputComponent->BindAxis("MoveForward", this, &ABKCharacter::MoveForward);
 	PlayerInputComponent->BindAxis("MoveRight", this, &ABKCharacter::MoveRight);
@@ -52,22 +61,28 @@ void ABKCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCompone
 	PlayerInputComponent->BindAxis("Turn", this, &ABKCharacter::Turn);
 }
 
-
-
-//Called from BKGameModeBase
 void ABKCharacter::ResetPlayerPosition_Implementation()
 {
 	ABKGameModeBase* GM = Cast<ABKGameModeBase>(UGameplayStatics::GetGameMode(GetWorld()));
+	ABKPlayerControllerBase* PC = Cast<ABKPlayerControllerBase>(GetController());
+
+	if (PC == nullptr)
+	{
+		UE_LOG(LogTemp, Error, TEXT("Player Controller NULLPTR!!!"));
+		return;
+	}
+
+	const FVector RandomVectorToAdd = FVector(FMath::RandRange(100.0f, 400.0f), FMath::RandRange(100.0f, 400.0f), FMath::RandRange(100.0f, 400.0f));
 
 	//Spawning player according to their team spawn point.
-	if (TeamId == 1)
+	if (PC->TeamId == 1)
 	{
-		SetActorLocation(GM->TeamOneSpawnPointLocation);
+		SetActorLocation(GM->TeamOneSpawnPointLocation + RandomVectorToAdd);
 		SetActorRotation(GM->TeamOneSpawnPointRotation);
 	}
-	else if (TeamId == 2)
+	else if (PC->TeamId == 2)
 	{
-		SetActorLocation(GM->TeamTwoSpawnPointLocation);
+		SetActorLocation(GM->TeamTwoSpawnPointLocation + RandomVectorToAdd);
 		SetActorRotation(GM->TeamTwoSpawnPointRotation);
 	}
 }
@@ -77,8 +92,13 @@ void ABKCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLife
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
 	//Replicates to everyone
-	DOREPLIFETIME(ABKCharacter, TeamId);
 	DOREPLIFETIME(ABKCharacter, IsCarryingBall);
+	DOREPLIFETIME(ABKCharacter, TeamId);
+}
+
+APlayerController* ABKCharacter::GetPlayerController() const
+{
+	return Cast<APlayerController>(Controller);
 }
 
 // Called when the game starts or when spawned
@@ -119,6 +139,54 @@ void ABKCharacter::Turn(float value)
 	}
 }
 
+void ABKCharacter::ClientDashForward()
+{
+	ServerDashForward();
+}
+
+void ABKCharacter::ClientDashBackward()
+{
+	ServerDashBackward();
+}
+
+void ABKCharacter::ClientDashRight()
+{
+	ServerDashRight();
+}
+
+void ABKCharacter::ClientDashLeft()
+{
+	ServerDashLeft();
+}
+
+void ABKCharacter::ServerDashBackward_Implementation()
+{
+	FVector LaunchVector = GetActorForwardVector() * -DashPower;
+
+	LaunchCharacter(LaunchVector, false, false);
+}
+
+void ABKCharacter::ServerDashForward_Implementation()
+{
+	FVector LaunchVector = GetActorForwardVector() * DashPower;
+
+	LaunchCharacter(LaunchVector, false, false);
+}
+
+void ABKCharacter::ServerDashRight_Implementation()
+{
+	FVector LaunchVector = GetActorRightVector() * DashPower;
+
+	LaunchCharacter(LaunchVector, false, false);
+}
+
+void ABKCharacter::ServerDashLeft_Implementation()
+{
+	FVector LaunchVector = GetActorRightVector() * -DashPower;
+
+	LaunchCharacter(LaunchVector, false, false);
+}
+
 void ABKCharacter::StartFire()
 {
 	ServerGrabObject();
@@ -129,7 +197,7 @@ void ABKCharacter::ServerGrabObject_Implementation()
 	const FCollisionQueryParams QueryParams("ObjectCarryTrace", false, this);
 
 	//Casting the controller to APlayerController class.
-	APlayerController* PC = Cast<APlayerController>(this->GetController());
+	ABKPlayerControllerBase* PC = Cast<ABKPlayerControllerBase>(GetController());
 
 	FVector CameraLocation;
 	FRotator CameraRotation;
@@ -156,7 +224,7 @@ void ABKCharacter::ServerGrabObject_Implementation()
 		if (ball != nullptr)
 		{
 			ball->IsGrabbed = true;
-			ball->LastTeamId = TeamId;
+			ball->LastTeamId = PC->TeamId;
 			ball->SetActorEnableCollision(false);
 		}
 
@@ -206,7 +274,7 @@ void ABKCharacter::ServerThrowObject_Implementation(const FVector ClientForwardV
 
 		//Setting GrabbedObject to nullptr as we are no longer carrying it.
 		GrabbedObject = nullptr;
-		OnBallDrop();
 		IsCarryingBall = false;
+		OnBallDrop();
 	}
 }

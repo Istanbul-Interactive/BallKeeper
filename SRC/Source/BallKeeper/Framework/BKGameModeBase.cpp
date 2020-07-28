@@ -2,7 +2,7 @@
 
 #include "BKGameModeBase.h"
 
-#include "BallKeeper/Gameplay/Player/BKCharacter.h"
+#include "BallKeeper/Gameplay/Player/BKPlayerControllerBase.h"
 #include "Kismet/GameplayStatics.h"
 
 ABKGameModeBase::ABKGameModeBase()
@@ -13,7 +13,7 @@ void ABKGameModeBase::BeginPlay()
 {
 	Super::BeginPlay();
 
-	ConnectedPlayers.Add(UGameplayStatics::GetPlayerController(GetWorld(), 0));
+	/*ConnectedPlayers.Add(UGameplayStatics::GetPlayerController(GetWorld(), 0));*/
 
 	SpawnBall(FVector(0.0f, 0.0f, 400.0f), FRotator(0.0f, 0.0f, 0.0f));
 }
@@ -29,7 +29,7 @@ void ABKGameModeBase::PreLogin(const FString& Options, const FString& Address, c
 
 	UE_LOG(LogTemp, Warning, TEXT("Player joining..."));
 
-	if (GetNumPlayers() >= 15)
+	if (GetNumPlayers() >= MaxPlayerCount)
 	{
 		UE_LOG(LogTemp, Error, TEXT("Max player count reached. Refusing connection..."));
 		ErrorMessage = TEXT("Server is full!");
@@ -39,15 +39,20 @@ void ABKGameModeBase::PreLogin(const FString& Options, const FString& Address, c
 void ABKGameModeBase::PostLogin(APlayerController* NewPlayer)
 {
 	Super::PostLogin(NewPlayer);
-
 	UE_LOG(LogTemp, Warning, TEXT("Player joined!"));
+
+	UE_LOG(LogTemp, Warning, TEXT("Array added!"));
 	ConnectedPlayers.Add(NewPlayer);
 
-	AssignPlayerTeam(NewPlayer);
+	ABKPlayerControllerBase* PC = Cast<ABKPlayerControllerBase>(NewPlayer);
+	if (PC)
+		PC->SpawnCharacter(PlayerToSpawn);
 }
 
 void ABKGameModeBase::Logout(AController* Exiting)
 {
+	Super::Logout(Exiting);
+	UE_LOG(LogTemp, Warning, TEXT("Array Removed"));
 	ConnectedPlayers.Remove(Cast<APlayerController>(Exiting));
 }
 
@@ -67,12 +72,14 @@ int ABKGameModeBase::GetTeamOnePlayerCount()
 
 	for (int i = 0; i < ConnectedPlayers.Num(); i++)
 	{
-		ABKCharacter* Character = Cast<ABKCharacter>(ConnectedPlayers[i]->GetCharacter());
-		if (Character != nullptr && Character->TeamId == 1)
+		ABKPlayerControllerBase* PC = Cast<ABKPlayerControllerBase>(ConnectedPlayers[i]);
+		if (PC != nullptr && PC->TeamId == 1)
 		{
 			TeamOneCount++;
 		}
 	}
+
+	UE_LOG(LogTemp, Warning, TEXT("Team One: %i"), TeamOneCount);
 
 	return TeamOneCount;
 }
@@ -83,96 +90,52 @@ int ABKGameModeBase::GetTeamTwoPlayerCount()
 
 	for (int i = 0; i < ConnectedPlayers.Num(); i++)
 	{
-		ABKCharacter* Character = Cast<ABKCharacter>(ConnectedPlayers[i]->GetCharacter());
-		if (Character != nullptr && Character->TeamId == 2)
+		ABKPlayerControllerBase* PC = Cast<ABKPlayerControllerBase>(ConnectedPlayers[i]);
+		if (PC != nullptr && PC->TeamId == 2)
 		{
 			TeamTwoCount++;
 		}
 	}
 
+	UE_LOG(LogTemp, Warning, TEXT("Team Two %i"), TeamTwoCount);
+
 	return TeamTwoCount;
 }
 
-void ABKGameModeBase::RestartGame_Implementation()
+void ABKGameModeBase::KillAllPlayers_Implementation()
 {
 	for (int i = 0; i < ConnectedPlayers.Num(); i++)
 	{
-		int TeamOneCount = 0;
-		int TeamTwoCount = 0;
-
-		ABKCharacter* Character = Cast<ABKCharacter>(ConnectedPlayers[i]->GetCharacter());
-		//Destroying all ABKCharacters in game to reset everything.
-
-		if (Character != nullptr)
+		ACharacter* Char = ConnectedPlayers[i]->GetCharacter();
+		if (Char != nullptr)
 		{
 			ConnectedPlayers[i]->UnPossess();
-			Character->Destroy();
+			Char->Destroy();
 		}
-
-		ABKCharacter* NewCharacter = GetWorld()->SpawnActor<ABKCharacter>(PlayerToSpawn, FVector(0.0f, 0.0f, 0.0f), FRotator(0.0f, 0.0f, 0.0));
-		ConnectedPlayers[i]->Possess(NewCharacter);
-		AssignPlayerTeam(ConnectedPlayers[i]);
-
-		TArray<AActor*> FoundActors;
-		UGameplayStatics::GetAllActorsOfClass(GetWorld(), ABKBall::StaticClass(), OUT FoundActors);
-
-		ABKBall* Ball = Cast<ABKBall>(FoundActors[0]);
-		if (Ball != nullptr)
-			Ball->ResetBallLocation();
 	}
 }
 
-void ABKGameModeBase::AssignPlayerTeam_Implementation(APlayerController* NewPlayer)
+void ABKGameModeBase::CheckRestartCondition_Implementation()
 {
-	ABKCharacter* NewCharacter = Cast<ABKCharacter>(NewPlayer->GetCharacter());
+	//Checking if either one of the teams have won.
+	const int TeamOneRemainingCount = GetTeamOnePlayerCount();
+	const int TeamTwoRemainingCount = GetTeamTwoPlayerCount();
 
-	if (NewCharacter)
+	if (TeamOneRemainingCount == 0 || TeamTwoRemainingCount == 0)
 	{
-		int TeamOne = GetTeamOnePlayerCount();
-		int TeamTwo = GetTeamTwoPlayerCount();
+		KillAllPlayers();
 
-		if (TeamOne < TeamTwo)
-			NewCharacter->TeamId = 1;
-		else if (TeamTwo < TeamOne)
-			NewCharacter->TeamId = 2;
-		else
+		for (int i = 0; i < ConnectedPlayers.Num(); i++)
 		{
-			NewCharacter->TeamId = FMath::RandRange(1, 2);
+			ABKPlayerControllerBase* PC = Cast<ABKPlayerControllerBase>(ConnectedPlayers[i]);
+			PC->SpawnCharacter(PlayerToSpawn);
+
+			TArray<AActor*> FoundActors;
+			UGameplayStatics::GetAllActorsOfClass(GetWorld(), ABKBall::StaticClass(), OUT FoundActors);
+
+			ABKBall* Ball = Cast<ABKBall>(FoundActors[0]);
+			if (Ball != nullptr)
+				Ball->ResetBallLocation();
 		}
-
-		NewCharacter->ResetPlayerPosition();
 	}
-}
-
-void ABKGameModeBase::OnPlayerDeath_Implementation()
-{
-	int TeamOneRemainingCount = GetTeamOnePlayerCount();
-	int TeamTwoRemainingCount = GetTeamTwoPlayerCount();
-
-	if (ConnectedPlayers.Num() > 1)
-	{
-		if (TeamOneRemainingCount == 0 || TeamTwoRemainingCount == 0)
-			RestartGame();
-	}
-}
-
-void ABKGameModeBase::PlayerDeath_Implementation(ABKCharacter* Character)
-{
-	//Storing the Character's position and rotation in memory.
-	const FVector PlayerLocation = Character->GetActorLocation();
-	const FRotator PlayerRotation = Character->GetActorRotation();
-	const FActorSpawnParameters SpawnParams;
-
-	APlayerController* PC = Cast<APlayerController>(Character->GetController());
-
-	//Spawning the new spectator into the game world.
-	ABKSpectatorPawn* NewSpectator = GetWorld()->SpawnActor<ABKSpectatorPawn>(PlayerSpectator, PlayerLocation, PlayerRotation, SpawnParams);
-	PC->UnPossess();
-	APawn* PawnToPosses = Cast<APawn>(NewSpectator);
-	//Making the player posses the newly created spectator pawn.
-	PC->Possess(PawnToPosses);
-	//Destroying the dead player from the game scene.
-	Character->Destroy();
-
-	OnPlayerDeath();
 }

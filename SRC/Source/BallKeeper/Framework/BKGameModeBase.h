@@ -41,6 +41,9 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spawn")
 		FRotator TeamTwoSpawnPointRotation;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Server")
+		int MaxPlayerCount;
+
 public:
 	ABKGameModeBase();
 
@@ -58,18 +61,12 @@ protected:
 public:
 	UFUNCTION(BlueprintCallable, Category = "BallKeeper|Ball")
 		void SpawnBall(FVector Location, FRotator Rotation) const;
-
-	UFUNCTION(Server, Reliable, Category = "BallKeeper|Player")
-		void PlayerDeath(ABKCharacter* Character);
-
-	UFUNCTION(Server, Reliable, Category = "BallKeeper|Player")
-		void AssignPlayerTeam(APlayerController* NewPlayer);
-
+	
 	UFUNCTION(Server, Reliable, Category = "BallKeeper|Teams")
-		void RestartGame();
+		void CheckRestartCondition();
 
-	UFUNCTION(Server, Reliable, Category = "BallKeeper|Player")
-		void OnPlayerDeath();
+	UFUNCTION(Server, Reliable, BlueprintCallable ,Category = "BallKeeper|Teams")
+		void KillAllPlayers();
 
 	UFUNCTION(Category = "BallKeeper|Teams")
 		int GetTeamOnePlayerCount();

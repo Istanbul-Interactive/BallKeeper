@@ -21,7 +21,7 @@ public:
 
 	//For physics collision detection
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	USphereComponent* SphereTrigger;
+		USphereComponent* SphereTrigger;
 
 	UPROPERTY(BlueprintReadWrite, VisibleAnywhere)
 		bool IsGrabbed;
@@ -37,15 +37,15 @@ public:
 	UFUNCTION(Server, Reliable, BlueprintCallable, Category = "BallKeeper|Ball")
 		void ResetBallLocation();
 
-	UFUNCTION(BlueprintCallable, Category="BallKeeper|Ball")
-	void OnCollisionHit(AActor* OtherActor);
+	UFUNCTION(BlueprintCallable, Category = "BallKeeper|Ball")
+		void OnCollisionHit(AActor* OtherActor) const;
+
+	UFUNCTION(BlueprintImplementableEvent, Category = "BallKeeper|Ball")
+		void OnBallReset();
+
 protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
-
-	UFUNCTION(Server, Reliable)
-		void DropBall();
-	
 
 protected:
 	FVector BallResetLocation;

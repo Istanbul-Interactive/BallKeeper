@@ -2,9 +2,9 @@
 
 #include "BKBall.h"
 
-
 #include "BallKeeper/Framework/BKGameModeBase.h"
 #include "BallKeeper/Gameplay/Player/BKCharacter.h"
+#include "BallKeeper/Gameplay/Player/BKPlayerControllerBase.h"
 
 // Sets default values
 ABKBall::ABKBall()
@@ -25,6 +25,8 @@ void ABKBall::Tick(float DeltaTime)
 
 	if (HasAuthority() && GetActorLocation().Z <= -1000.0f)
 		ResetBallLocation();
+
+	//UE_LOG(LogTemp, Warning, TEXT("Last Team ID: %i"), LastTeamId);
 }
 
 void ABKBall::ResetBallLocation_Implementation()
@@ -33,24 +35,32 @@ void ABKBall::ResetBallLocation_Implementation()
 	BallMesh->SetSimulatePhysics(false);
 	LastTeamId = 0;
 	SetActorLocation(BallResetLocation);
+
+	OnBallReset();
 }
 
-void ABKBall::OnCollisionHit(AActor* OtherActor)
+void ABKBall::OnCollisionHit(AActor* OtherActor) const
 {
 	//Making sure that the code only runs on server.
-	if(GetNetMode() == ENetMode::NM_ListenServer)
+	if (GetNetMode() == ENetMode::NM_ListenServer)
 	{
 		//Team ID 0 = no team ever claimed the ball. It's neutral.
 		if (LastTeamId == 0)
 			return;
-		
+
 		ABKCharacter* Character = Cast<ABKCharacter>(OtherActor);
+		ABKPlayerControllerBase* PC;
+		
+		if (Character != nullptr)
+			PC = Cast<ABKPlayerControllerBase>(Character->Controller);
+		else
+			PC = nullptr;
 
 		//Checking if the last team to control the ball is same as the hit character's team.
-		if (Character && LastTeamId != Character->TeamId)
+		if (PC != nullptr && LastTeamId != PC->TeamId)
 		{
 			ABKGameModeBase* GM = Cast<ABKGameModeBase>(GetWorld()->GetAuthGameMode());
-			GM->PlayerDeath(Character);
+			PC->KillPlayer();
 		}
 	}
 }
@@ -67,10 +77,4 @@ void ABKBall::BeginPlay()
 		SetReplicateMovement(true);
 		BallMesh->SetSimulatePhysics(true);
 	}
-}
-
-void ABKBall::DropBall_Implementation()
-{
-	DetachFromActor(FDetachmentTransformRules::KeepWorldTransform);
-	BallMesh->SetSimulatePhysics(true);
 }
